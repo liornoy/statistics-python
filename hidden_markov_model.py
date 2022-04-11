@@ -120,5 +120,40 @@ def run_simulation(N):
 
     write_list(translate_symbol(cubes,CUBES_MAP,DEFAULT_CHAR), CUBES_OUTPUT_FILE_NAME)
     write_list(tosses, TOSS_OUTPUT_FILE_NAME)
+
+def result_differ(cubes_fname,hmm_fname):
+    f = open(cubes_fname, "r")
+    cubes = f.read()
+    f.close()
+    f = open(hmm_fname, "r")
+    hmm = f.read()
+    f.close()
+
+    TF = FF = TU = FU = i = 0
+
+    for i, c1 in enumerate(cubes):
+        if c1 == "\n":
+            continue
+        c2 = hmm[i]
+        print(c1, c2)
+        if c1 == "F":
+            if c2 == "F":
+                TF = TF + 1
+            else:
+                FF = FF +1
+        else:
+            if c2 == "U":
+                TU = TU +1
+            else:
+                FU = FU + 1
+        i = i + 1
+    
+    f = open ("HMM_OUT","w")
+    l = [TF,FF,TU,FU]
+    f.write('\n'.join(list(map(str, l))))
+    f.close()
+
+
    
 run_simulation(10)
+result_differ("a","b")
