@@ -160,10 +160,10 @@ def result_differ(cubes_fname, hmm_fname):
                 FF = FF + 1
         i = i + 1
 
-    f = open("diff", "w")
-    l = [TF, FF, TU, FU]
-    f.write("\n".join(list(map(str, l))))
-    f.close()
+    print("TF: ", TF)
+    print("FF: ", FF)
+    print("TU: ", TU)
+    print("FU: ", FU)
 
 
 def readSymbols(toss_fname):
