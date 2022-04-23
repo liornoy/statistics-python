@@ -1,4 +1,5 @@
 import random
+from math import log
 
 START = 1
 TOSS_FAKE = 2
@@ -7,12 +8,21 @@ NEXT_FAKE = 4
 NEXT_FAIR = 5
 FAKE = 6
 FAIR = 7
-CUBES_OUTPUT_FILE_NAME="CUBES_OUT"
+CUBES_OUTPUT_FILE_NAME = "CUBES_OUT"
 TOSS_OUTPUT_FILE_NAME = "TOSS_OUT"
+HMM_OUTPUT_FILE_NAME = "HMM_OUT"
 ERR = -1
 SEED = 10
+NUM_OF_TOSSES = 200
 DEFAULT_CHAR = "X"
-CUBES_MAP = dict([(6,"U"),(7,"F")])
+CUBES_MAP = dict([(6, "U"), (7, "F")])
+CUBES_MAP_HMM = dict([(1, "U"), (0, "F")])
+starting_vec = [0.5, 0.5]
+transition_mat = [[0.95, 0.05], [0.1, 0.9]]
+prob_mat = [
+    [0.1666, 0.1666, 0.1666, 0.1666, 0.1666, 0.1666],
+    [0.1, 0.1, 0.1, 0.1, 0.1, 0.5],
+]
 
 random.seed(SEED)
 
@@ -98,12 +108,14 @@ def write_list(item_list, f_name):
     f.write("\n".join(str(item) for item in item_list))
     f.close()
 
-def translate_symbol(item_list,mapping,default_val):
+
+def translate_symbol(item_list, mapping, default_val):
     t = []
     for item in item_list:
-        t += [mapping.get(item,default_val)]
+        t += [mapping.get(item, default_val)]
     return t
-    
+
+
 def run_simulation(N):
     cubes = []
     tosses = []
@@ -118,10 +130,11 @@ def run_simulation(N):
         tosses += [toss]
         cube = next_cube
 
-    write_list(translate_symbol(cubes,CUBES_MAP,DEFAULT_CHAR), CUBES_OUTPUT_FILE_NAME)
+    write_list(translate_symbol(cubes, CUBES_MAP, DEFAULT_CHAR), CUBES_OUTPUT_FILE_NAME)
     write_list(tosses, TOSS_OUTPUT_FILE_NAME)
 
-def result_differ(cubes_fname,hmm_fname):
+
+def result_differ(cubes_fname, hmm_fname):
     f = open(cubes_fname, "r")
     cubes = f.read()
     f.close()
@@ -135,25 +148,68 @@ def result_differ(cubes_fname,hmm_fname):
         if c1 == "\n":
             continue
         c2 = hmm[i]
-        print(c1, c2)
         if c1 == "F":
             if c2 == "F":
                 TF = TF + 1
             else:
-                FF = FF +1
+                FU = FU + 1
         else:
             if c2 == "U":
-                TU = TU +1
+                TU = TU + 1
             else:
-                FU = FU + 1
+                FF = FF + 1
         i = i + 1
-    
-    f = open ("HMM_OUT","w")
-    l = [TF,FF,TU,FU]
-    f.write('\n'.join(list(map(str, l))))
+
+    f = open("diff", "w")
+    l = [TF, FF, TU, FU]
+    f.write("\n".join(list(map(str, l))))
     f.close()
 
 
-   
-run_simulation(10)
-result_differ("a","b")
+def readSymbols(toss_fname):
+    f = open(toss_fname, "r")
+    cubes = f.read()
+    res = []
+    for c in cubes.splitlines():
+        c = c.strip()
+        res += [int(c) - 1]
+    return res
+
+
+def hmm(starting_vec, trans_mat, prob_mat, toss_fname):
+    # read tosses from file.
+    X = readSymbols(toss_fname)
+    Q = len(prob_mat)
+    N = len(X)
+
+    V = [[0] * N for i in range(Q)]
+    P = [[0] * N for i in range(Q)]
+    H = [0] * N
+
+    for l in range(Q):
+        V[l][0] = log(starting_vec[l]) + log(prob_mat[l][X[0]])
+
+    for i in range(N - 1):
+        for l in range(Q):
+            arr = [V[q][i] + log(trans_mat[q][l]) for q in range(Q)]
+            V[l][i + 1] = log(prob_mat[l][X[i + 1]]) + max(arr)
+            P[l][i + 1] = arr.index(max(arr))
+
+    arr = [V[q][N - 1] for q in range(Q)]
+    H[N - 1] = arr.index(max(arr))
+
+    for i in range(N - 2, 0, -1):
+        H[i] = P[H[i + 1]][i + 1]
+
+    res = ""
+    for h in H:
+        res += CUBES_MAP_HMM[h] + "\n"
+
+    f = open(HMM_OUTPUT_FILE_NAME, "w")
+    f.write(res)
+    f.close()
+
+
+run_simulation(NUM_OF_TOSSES)
+hmm(starting_vec, transition_mat, prob_mat, TOSS_OUTPUT_FILE_NAME)
+result_differ(CUBES_OUTPUT_FILE_NAME, HMM_OUTPUT_FILE_NAME)
